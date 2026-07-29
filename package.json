@@ -1,0 +1,21 @@
+{
+  "name": "bolpatra-sync",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled scraper that syncs Bolpatra (Nepal e-GP) tender notices into Supabase for Planxer's Home page.",
+  "scripts": {
+    "sync": "tsx scrape-bolpatra.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^17.4.2",
+    "undici": "^6.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
