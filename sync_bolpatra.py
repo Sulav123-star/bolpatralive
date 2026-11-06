@@ -22,8 +22,13 @@ _raw = urlsplit(os.environ["BOLPATRA_API_URL"].strip())
 # Accept the secret with or without a query string; keep any extra params
 API_URL = urlunsplit((_raw.scheme, _raw.netloc, _raw.path, "", ""))
 BASE_PARAMS = dict(parse_qsl(_raw.query))
-SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY")
+                or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+_missing = [n for n, v in (("SUPABASE_URL", SUPABASE_URL),
+                           ("SUPABASE_SERVICE_KEY", SUPABASE_KEY)) if not v]
+if _missing:
+    sys.exit(f"Missing/empty GitHub secret(s): {', '.join(_missing)}")
 TABLE = os.environ.get("SUPABASE_TABLE", "bolpatra_notices")
 SITE = "https://bolpatra.gov.np"
 
@@ -105,10 +110,13 @@ def upsert(rows):
     url = f"{SUPABASE_URL}/rest/v1/{TABLE}?on_conflict=tender_ref"
     h = {
         "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
     }
+    # Legacy JWT keys (eyJ...) go in Authorization too; new sb_secret_ keys
+    # must be sent in the apikey header only.
+    if not SUPABASE_KEY.startswith("sb_"):
+        h["Authorization"] = f"Bearer {SUPABASE_KEY}"
     for i in range(0, len(rows), 100):
         chunk = rows[i:i + 100]
         r = requests.post(url, json=chunk, headers=h, timeout=60)
