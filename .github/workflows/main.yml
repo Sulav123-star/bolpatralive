@@ -2,28 +2,29 @@ name: Sync Bolpatra Notices
 
 on:
   schedule:
-    # Every 30 minutes. Adjust frequency as needed — GitHub Actions cron
-    # can drift a few minutes under load, which is fine for this use case.
-    - cron: '*/30 * * * *'
-  workflow_dispatch: {} # lets you trigger a manual run from the Actions tab
+    - cron: "0 */3 * * *"   # every 3 hours (UTC)
+  workflow_dispatch:         # manual run button
+
+concurrency:
+  group: bolpatra-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-python@v5
         with:
-          node-version: 22
+          python-version: "3.12"
 
-      - name: Install dependencies
-        run: npm install
+      - run: pip install requests
 
-      - name: Run Bolpatra sync
-        run: npx tsx scrape-bolpatra.ts
+      - name: Run sync
         env:
+          BOLPATRA_API_URL: ${{ secrets.BOLPATRA_API_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python sync_bolpatra.py
