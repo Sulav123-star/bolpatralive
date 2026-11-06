@@ -12,12 +12,16 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
 import requests
 
 NPT = ZoneInfo("Asia/Kathmandu")  # UTC+05:45
-API_URL = os.environ["BOLPATRA_API_URL"]
+_raw = urlsplit(os.environ["BOLPATRA_API_URL"].strip())
+# Accept the secret with or without a query string; keep any extra params
+API_URL = urlunsplit((_raw.scheme, _raw.netloc, _raw.path, "", ""))
+BASE_PARAMS = dict(parse_qsl(_raw.query))
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 TABLE = os.environ.get("SUPABASE_TABLE", "bolpatra_notices")
@@ -38,6 +42,8 @@ def get_json(url, params=None, retries=4):
             return r.json()
         except requests.RequestException as e:
             if attempt == retries - 1:
+                body = getattr(getattr(e, "response", None), "text", "")[:300]
+                print(f"  last response body: {body}", file=sys.stderr)
                 raise
             wait = 2 ** attempt
             print(f"  retry in {wait}s after error: {e}", file=sys.stderr)
@@ -47,9 +53,8 @@ def get_json(url, params=None, retries=4):
 def fetch_all():
     items, page = [], 1
     while page:
-        data = get_json(
-            API_URL, {"ordering": "newest", "page": page, "status": "ALL"}
-        )
+        params = {**BASE_PARAMS, "ordering": "newest", "page": page, "status": "ALL"}
+        data = get_json(API_URL, params)
         items.extend(data.get("results", []))
         print(f"page {page}: {len(data.get('results', []))} rows "
               f"(total reported: {data.get('count')})")
